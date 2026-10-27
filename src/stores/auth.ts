@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authService, type LoginCredentials } from '@/services/authService'
 import type { AuthUser, Permission } from '@/types/auth'
+import { DEPARTMENT_CODES, USER_TYPE_CODES, normalizedCode } from '@/constants/organizationCodes'
 
 export const useAuthStore = defineStore('auth', () => {
    const user = ref<AuthUser | null>(null)
@@ -15,15 +16,15 @@ export const useAuthStore = defineStore('auth', () => {
    }
 
    // Codes must match the immutable codes returned by Laravel /api/me.
-   const isSuperAdmin = computed(() => user.value?.user_type?.code === 'SUPER_ADMIN')
+   const isSuperAdmin = computed(() => normalizedCode(user.value?.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN)
 
    const isUserManagerGroup = computed(() => {
-      const role = user.value?.user_type?.code?.toUpperCase()
-      const department = user.value?.department?.code?.toUpperCase()
+      const role = normalizedCode(user.value?.user_type?.code)
+      const department = normalizedCode(user.value?.department?.code)
 
-      return role === 'SUPER_ADMIN'
-         || role === 'ADMIN'
-         || department === 'IT'
+      return role === USER_TYPE_CODES.SUPER_ADMIN
+         || role === USER_TYPE_CODES.ADMIN
+         || department === DEPARTMENT_CODES.INFORMATION_TECHNOLOGY
    })
 
    function canManageUsers(permission: string): boolean {
@@ -58,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = true
 
       try {
-         await authService.login(credentials.username, credentials.password)
+         await authService.login(credentials)
          await fetchUser()
       } finally {
          loading.value = false
