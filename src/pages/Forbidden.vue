@@ -1,0 +1,1 @@
+<template><v-container class="text-center py-16"><v-icon icon="mdi-shield-lock-outline" color="primary" size="90" /><h1 class="text-h4 mt-5">Access denied</h1><p class="text-medium-emphasis mt-2 mb-6">You do not have permission to view this page.</p><v-btn color="primary" to="/dashboard">Return to dashboard</v-btn></v-container></template>
