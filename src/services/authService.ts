@@ -1,35 +1,16 @@
-import axios from 'axios'
-import { appConfig } from '@/config/app'
-import { api } from './api'
-
+import { api, initializeCsrf } from '@/services/api'
+import type { AuthUser } from '@/types/auth'
+export interface LoginCredentials { username: string; password: string }
 export const authService = {
-   async csrf() {
-      await axios.get(
-          `${appConfig.backendUrl}/sanctum/csrf-cookie`,
-          {
-             withCredentials: true,
-             withXSRFToken: true,
-          }
-      )
+   async login(credentials: LoginCredentials): Promise<void> {
+      await initializeCsrf()
+      await api.post('/login', credentials)
    },
-
-   async login(username: string, password: string) {
-      await this.csrf()
-
-      const response = await api.post('/login', {
-         username,
-         password,
-      })
-
+   async getUser(): Promise<AuthUser> {
+      const response = await api.get<AuthUser>('/me')
       return response.data
    },
-
-   async getUser() {
-      const response = await api.get('/me')
-      return response.data
-   },
-
-   async logout() {
+   async logout(): Promise<void> {
       await api.post('/logout')
    },
 }

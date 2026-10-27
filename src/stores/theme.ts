@@ -2,11 +2,12 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useTheme } from 'vuetify'
 
-const ACCENTS = ['#8955f6', '#4f80ed', '#10a99c', '#ed8b35', '#df5a91']
+const ACCENTS = ['#2563eb', '#4f80ed', '#10a99c', '#ed8b35', '#df5a91']
 export const useAppearanceStore = defineStore('appearance', () => {
   const vuetifyTheme = useTheme()
   const mode = ref<'light' | 'dark'>(localStorage.getItem('ui.mode') === 'dark' ? 'dark' : 'light')
-  const accent = ref(localStorage.getItem('ui.accent') || ACCENTS[0]!)
+  const savedAccent = localStorage.getItem('ui.accent')
+  const accent = ref(savedAccent && ACCENTS.includes(savedAccent) ? savedAccent : ACCENTS[0]!)
   const isDark = computed(() => mode.value === 'dark')
   function apply() {
     vuetifyTheme.global.name.value = isDark.value ? 'appDark' : 'appLight'

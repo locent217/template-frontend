@@ -17,9 +17,9 @@
          <template #item.active="{ item }"><v-chip :color="item.active ? 'success' : 'warning'" size="small" variant="tonal">{{ item.active ? 'Active' : 'Inactive' }}</v-chip></template>
          <template #item.actions="{ item }">
             <div class="d-flex ga-1 justify-end">
-               <v-btn v-if="canPermissions" icon="mdi-shield-key-outline" size="small" variant="text" title="Manage permissions" :disabled="item.user_type?.code === 'SUPER_ADMIN'" @click="openPermissions(item)" />
+               <v-btn v-if="canPermissions" icon="mdi-shield-key-outline" size="small" variant="text" title="Manage permissions" :disabled="normalizedCode(item.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN" @click="openPermissions(item)" />
                <v-btn v-if="canUpdate" icon="mdi-pencil-outline" size="small" variant="text" title="Edit user" @click="openEdit(item)" />
-               <v-btn v-if="canDelete" icon="mdi-delete-outline" size="small" variant="text" color="error" title="Delete user" :disabled="item.id === auth.user?.id || item.user_type?.code === 'SUPER_ADMIN'" @click="deleting = item; deleteDialog = true" />
+               <v-btn v-if="canDelete" icon="mdi-delete-outline" size="small" variant="text" color="error" title="Delete user" :disabled="item.id === auth.user?.id || normalizedCode(item.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN" @click="deleting = item; deleteDialog = true" />
             </div>
          </template>
       </v-data-table>
@@ -38,10 +38,11 @@
                   <v-col cols="12" md="6"><v-text-field v-model="form.username" label="Username" autocomplete="off" :rules="[rules.required, rules.username]" /></v-col>
                   <v-col cols="12" md="6"><v-text-field v-model="form.email" label="Email" type="email" :rules="[rules.required, rules.email]" /></v-col>
                   <v-col cols="12"><v-text-field v-model="form.password" :label="editingId ? 'New password (optional)' : 'Temporary password'" :type="showPassword ? 'text' : 'password'" :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" @click:append-inner="showPassword = !showPassword" :rules="editingId && !form.password ? [] : [rules.required, rules.minLength(12)]" autocomplete="new-password" /></v-col>
-                  <v-col cols="12" md="6"><v-select v-model="form.department_id" :items="departments" item-title="name" item-value="id" label="Department" clearable :rules="[rules.required]" /></v-col>
-                  <v-col cols="12" md="6"><v-select v-model="form.user_type_id" :items="assignableTypes" item-title="name" item-value="id" label="User type" :rules="[rules.required]" /></v-col>
+                  <v-col cols="12"><v-text-field v-model="form.password_confirmation" :label="editingId ? 'Confirm new password' : 'Confirm temporary password'" :type="showPassword ? 'text' : 'password'" :rules="editingId && !form.password && !form.password_confirmation ? [] : [rules.required, (v: string) => v === form.password || 'Passwords do not match']" autocomplete="new-password" /></v-col>
+                  <v-col cols="12" md="6"><v-select v-model="form.department_id" :items="departmentOptions" item-title="name" item-value="id" label="Department" clearable :rules="[rules.required]" /></v-col>
+                  <v-col cols="12" md="6"><v-select v-model="form.user_type_id" :items="userTypeOptions" item-title="name" item-value="id" label="User type" :rules="[rules.required]" /></v-col>
                   <v-col cols="12" md="6"><v-select v-model="assignmentLevel" :items="assignmentOptions" item-title="title" item-value="value" label="Organizational assignment" @update:model-value="clearAssignment" /></v-col>
-                  <v-col v-if="assignmentLevel !== 'none'" cols="12" md="6"><v-text-field v-model="assignmentId" :label="assignmentLevel + ' UUID'" :rules="[rules.required]" hint="Select a valid organization UUID from your backend" persistent-hint /></v-col>
+                  <v-col v-if="assignmentLevel !== 'none'" cols="12" md="6"><v-select v-model="assignmentId" :items="assignmentDisplayOptions" item-title="name" item-value="id" :label="assignmentLevel + ' assignment'" :rules="[rules.required]" :loading="loadingAssignments" /></v-col>
                   <v-col cols="12"><v-switch v-model="form.active" color="primary" label="Active account" hide-details /></v-col>
                </v-row>
             </v-form>
@@ -58,8 +59,10 @@
 </template>
 
 <script setup lang="ts">
-   import { computed, onMounted, ref } from 'vue'
+   import { computed, onMounted, ref, watch } from 'vue'
+   import { listOrganization, type OrganizationResource } from '@/services/organization'
    import { useAuthStore } from '@/stores/auth'
+   import { USER_TYPE_CODES, normalizedCode } from '@/constants/organizationCodes'
    import { rules } from '@/utils/validationRules'
    import { createUser, deleteUser, listDepartments, listUserTypes, listUsers, updateUser, type UserPayload } from '@/services/users'
    import type { LookupOption, UserRecord } from '@/types/auth'
@@ -85,6 +88,26 @@
    const userForm = ref<any>(null)
    const assignmentLevel = ref('none')
    const assignmentId = ref('')
+   const assignmentOptionsList = ref<LookupOption[]>([])
+   const loadingAssignments = ref(false)
+   const lookupsLoading = ref(false)
+   const lookupsLoaded = ref(false)
+   const assignmentResources: Record<string, OrganizationResource> = {
+      branch: 'branches',
+      region: 'regions',
+      territory: 'territories',
+      island: 'islands',
+   }
+   async function loadAssignments(level: string) {
+      assignmentOptionsList.value = []
+      const resource = assignmentResources[level]
+      if (!resource) return
+      loadingAssignments.value = true
+      try { assignmentOptionsList.value = await listOrganization(resource) as unknown as LookupOption[] }
+      catch (e) { error.value = apiError(e, `Could not load ${level} options.`) }
+      finally { loadingAssignments.value = false }
+   }
+   watch(assignmentLevel, level => { void loadAssignments(level) })
    const assignmentOptions = [
       { title: 'Head Office (none)', value: 'none' },
       { title: 'Branch', value: 'branch' },
@@ -93,14 +116,28 @@
       { title: 'Island', value: 'island' },
    ]
    function blank(): UserPayload {
-      return { first_name: '', middle_name: null, last_name: '', username: '', email: '', password: '', department_id: null, user_type_id: null, branch_id: null, region_id: null, territory_id: null, island_id: null, active: true }
+      return { first_name: '', middle_name: null, last_name: '', username: '', email: '', password: '', password_confirmation: '', department_id: null, user_type_id: null, branch_id: null, region_id: null, territory_id: null, island_id: null, active: true }
    }
    const form = ref<UserPayload>(blank())
    const canCreate = computed(() => auth.canManageUsers('users.create'))
    const canUpdate = computed(() => auth.canManageUsers('users.update'))
    const canDelete = computed(() => auth.canManageUsers('users.delete'))
    const canPermissions = computed(() => auth.isSuperAdmin && auth.has('users.manage_permissions'))
-   const assignableTypes = computed(() => auth.isSuperAdmin ? userTypes.value : userTypes.value.filter(type => type.code !== 'SUPER_ADMIN'))
+   // Include the current record as a fallback if the lookup API is delayed or filtered.
+   function optionsWithCurrent(options: LookupOption[], id: string | null | undefined, name: string | null | undefined): LookupOption[] {
+      if (!id || options.some(option => option.id === id)) return options
+      return name ? [{ id, name }, ...options] : options
+   }
+   const selectedUser = computed(() => rows.value.find(row => row.id === editingId.value))
+   const departmentOptions = computed(() => optionsWithCurrent(departments.value, form.value.department_id, selectedUser.value?.department?.name))
+   const userTypeOptions = computed(() => optionsWithCurrent(assignableTypes.value, form.value.user_type_id, selectedUser.value?.user_type?.name))
+   const assignmentDisplayOptions = computed(() => {
+      const selected = selectedUser.value
+      const level = assignmentLevel.value
+      const relation = selected && level !== 'none' ? selected[level as 'branch' | 'region' | 'territory' | 'island'] : null
+      return optionsWithCurrent(assignmentOptionsList.value, assignmentId.value, relation?.name)
+   })
+   const assignableTypes = computed(() => auth.isSuperAdmin ? userTypes.value : userTypes.value.filter(type => normalizedCode(type.code) !== USER_TYPE_CODES.SUPER_ADMIN))
    const headers = [
       { title: 'Employee', key: 'full_name' }, { title: 'Email', key: 'email' },
       { title: 'Department', key: 'department' }, { title: 'User type', key: 'user_type' },
@@ -123,14 +160,21 @@
       try { rows.value = await listUsers() } catch (e) { error.value = apiError(e, 'Could not load users.') } finally { loading.value = false }
    }
    async function loadLookups() {
-      try { [departments.value, userTypes.value] = await Promise.all([listDepartments(), listUserTypes()]) }
+      lookupsLoading.value = true
+       try { [departments.value, userTypes.value] = await Promise.all([listDepartments(), listUserTypes()]); lookupsLoaded.value = true }
       catch (e) { error.value = apiError(e, 'Could not load user types or departments.') }
+       finally { lookupsLoading.value = false }
    }
    function clearAssignment() { assignmentId.value = '' }
-   function openCreate() { editingId.value = null; form.value = blank(); assignmentLevel.value = 'none'; assignmentId.value = ''; dialog.value = true }
-   function openEdit(u: UserRecord) {
+   async function openCreate() {
+       if (!lookupsLoaded.value) await loadLookups()
+       if (!lookupsLoaded.value) return
+ editingId.value = null; form.value = blank(); assignmentLevel.value = 'none'; assignmentId.value = ''; dialog.value = true }
+   async function openEdit(u: UserRecord) {
+       if (!lookupsLoaded.value) await loadLookups()
+       if (!lookupsLoaded.value) return
       editingId.value = u.id
-      form.value = { first_name: u.first_name || '', middle_name: u.middle_name || null, last_name: u.last_name || '', username: u.username, email: u.email, password: '', department_id: u.department_id, user_type_id: u.user_type_id, branch_id: u.branch_id || null, region_id: u.region_id || null, territory_id: u.territory_id || null, island_id: u.island_id || null, active: Boolean(u.active) }
+      form.value = { first_name: u.first_name || '', middle_name: u.middle_name || null, last_name: u.last_name || '', username: u.username, email: u.email, password: '', password_confirmation: '', department_id: u.department_id, user_type_id: u.user_type_id, branch_id: u.branch_id || null, region_id: u.region_id || null, territory_id: u.territory_id || null, island_id: u.island_id || null, active: Boolean(u.active) }
       const found = (['branch', 'region', 'territory', 'island'] as const).find(level => Boolean(u[`${level}_id`]))
       assignmentLevel.value = found || 'none'
       assignmentId.value = found ? u[`${found}_id`] || '' : ''
@@ -144,7 +188,10 @@
       try {
          const payload: UserPayload = { ...form.value, branch_id: null, region_id: null, territory_id: null, island_id: null }
          if (assignmentLevel.value !== 'none') (payload as any)[`${assignmentLevel.value}_id`] = assignmentId.value.trim()
-         if (editingId.value && !payload.password) delete payload.password
+         if (editingId.value && !payload.password) {
+            delete payload.password
+            delete payload.password_confirmation
+         }
          if (editingId.value) await updateUser(editingId.value, payload)
          else await createUser(payload)
          dialog.value = false; message(editingId.value ? 'User updated.' : 'User created.'); await refresh()

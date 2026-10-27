@@ -8,6 +8,29 @@
           <div class="text-caption text-medium-emphasis">© {{ new Date().getFullYear() }} {{ appConfig.companyName }}</div>
         </v-col>
         <v-col cols="12" md="6" class="pa-8 pa-md-12 d-flex align-center"><div class="w-100 mx-auto" style="max-width: 390px">
+          <div class="d-flex justify-end mb-5">
+            <v-btn
+              :prepend-icon="appearance.isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night'"
+              variant="text"
+              size="small"
+              :aria-label="appearance.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+              @click="appearance.mode = appearance.isDark ? 'light' : 'dark'"
+            >{{ appearance.isDark ? 'Light mode' : 'Dark mode' }}</v-btn>
+          </div>
+          <div class="d-flex justify-end align-center ga-2 mb-5" aria-label="Choose primary color">
+            <button
+              v-for="color in appearance.accents"
+              :key="color"
+              type="button"
+              class="login-color-swatch"
+              :style="{ backgroundColor: color }"
+              :aria-label="`Use ${color} as primary color`"
+              :aria-pressed="appearance.accent === color"
+              @click="appearance.accent = color"
+            >
+              <v-icon v-if="appearance.accent === color" icon="mdi-check" color="white" size="small" />
+            </button>
+          </div>
           <div class="text-h4 font-weight-bold mb-2">Welcome back <span aria-hidden="true">👋</span></div>
           <p class="text-medium-emphasis mb-8">Sign in to continue to your workspace.</p>
           <v-alert v-if="error" type="error" variant="tonal" class="mb-5" :text="error" />
@@ -31,6 +54,7 @@
    import { appConfig } from '@/config/app'
    import { useRouter, useRoute } from 'vue-router'
    import { useAuthStore } from '@/stores/auth'
+   import { useAppearanceStore } from '@/stores/theme'
 
    const username = ref('')
    const password = ref('')
@@ -38,6 +62,7 @@
    const error = ref('')
    const valid = ref(false)
    const auth = useAuthStore()
+   const appearance = useAppearanceStore()
    const router = useRouter()
    const route = useRoute()
 
