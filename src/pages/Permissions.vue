@@ -15,7 +15,7 @@
          <template #item.actions="{ item }">
             <div class="d-flex justify-end ga-1">
                <v-btn v-if="canUpdate" icon="mdi-pencil-outline" variant="text" size="small" :disabled="openingDialog" @click="openEdit(item)" />
-               <v-btn v-if="canDelete" icon="mdi-delete-outline" variant="text" color="error" size="small" @click="deleting = item; deleteDialog = true" />
+               <v-btn v-if="canDelete" icon="mdi-delete-outline" variant="text" color="error" size="small" @click="requestDelete(item)" />
             </div>
          </template>
       </v-data-table>
@@ -35,19 +35,11 @@
          </v-form>
       </v-card>
    </v-dialog>
-   <v-dialog v-model="deleteDialog" max-width="440">
-      <v-card class="pa-6">
-         <h2 class="text-h6">Delete Permission?</h2>
-         <p class="my-4">This action may be restricted if related records exist.</p>
-         <div class="d-flex justify-end ga-2">
-            <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
-            <v-btn color="error" :loading="saving" @click="confirmDelete">Delete</v-btn>
-         </div>
-      </v-card>
-   </v-dialog>
+   
 </template>
 
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm'
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
@@ -68,7 +60,7 @@ const dialogError = ref('')
 const notice = ref('')
 const showNotice = ref(false)
 const dialog = ref(false)
-const deleteDialog = ref(false)
+
 const deleting = ref<OrganizationRecord | null>(null)
 const editingId = ref<string | null>(null)
 const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
@@ -157,6 +149,15 @@ async function openEdit(item: OrganizationRecord) {
 async function save() {
    const result = await formRef.value?.validate()
    if (!result?.valid) return
+   if (saving.value) return
+   const updating = Boolean(editingId.value)
+   const approved = await confirm({
+      title: updating ? 'Confirm update' : 'Confirm creation',
+      message: updating ? 'Save changes to this permission?' : 'Create this permission?',
+      confirmText: updating ? 'Save changes' : 'Create',
+      color: 'primary',
+   })
+   if (!approved || saving.value) return
    saving.value = true
    dialogError.value = ''
    try {
@@ -170,17 +171,25 @@ async function save() {
    } catch (e) { dialogError.value = errorMessage(e) }
    finally { saving.value = false }
 }
+const { confirm } = useConfirm()
+async function requestDelete(item: OrganizationRecord) {
+   const label = String(item.name ?? item.code ?? item.id)
+   const approved = await confirm({ title: 'Confirm deletion', message: `Delete ${label}? This action may be irreversible.`, confirmText: 'Delete' })
+   if (!approved) return
+   deleting.value = item
+   await confirmDelete()
+}
 async function confirmDelete() {
    if (!deleting.value) return
    saving.value = true
    error.value = ''
    try {
       await deleteOrganization(resource, deleting.value.id)
-      deleteDialog.value = false
+      
       notice.value = 'Permission deleted successfully.'
       showNotice.value = true
       await loadRecords()
-   } catch (e) { error.value = errorMessage(e); deleteDialog.value = false }
+   } catch (e) { error.value = errorMessage(e);  }
    finally { saving.value = false }
 }
 onMounted(loadRecords)

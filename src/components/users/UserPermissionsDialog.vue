@@ -14,7 +14,7 @@
                      <td><div class="font-weight-medium">{{ permission.code }}</div><div class="text-caption text-medium-emphasis">{{ permission.module?.name || permission.name || '' }}</div></td>
                      <td><v-chip size="x-small" :color="isDefault(permission.code) ? 'success' : 'default'" variant="tonal">{{ isDefault(permission.code) ? 'Granted' : 'Not granted' }}</v-chip></td>
                      <td><v-chip size="x-small" :color="overrideFor(permission.code) === true ? 'success' : overrideFor(permission.code) === false ? 'error' : 'default'" variant="tonal">{{ overrideFor(permission.code) === true ? 'Allow' : overrideFor(permission.code) === false ? 'Deny' : 'Inherit' }}</v-chip></td>
-                     <td><v-icon :icon="isEffective(permission.code) ? 'mdi-check-circle' : 'mdi-minus-circle-outline'" :color="isEffective(permission.code) ? 'success' : 'grey'" /></td>
+                     <td><v-icon :icon="isEffective(permission.code) ? 'mdi-check-circle-outline' : 'mdi-minus-circle-outline'" :color="isEffective(permission.code) ? 'success' : 'grey'" /></td>
                      <td><div class="d-flex ga-1 justify-end"><v-btn size="x-small" color="success" variant="tonal" :disabled="saving || permission.code === 'users.manage_permissions'" @click="change(permission.id, true)">Allow</v-btn><v-btn size="x-small" color="error" variant="tonal" :disabled="saving" @click="change(permission.id, false)">Deny</v-btn><v-btn size="x-small" variant="text" :disabled="saving || overrideFor(permission.code) === null" @click="reset(permission.id)">Reset</v-btn></div></td>
                   </tr><tr v-if="!visibleCatalog.length"><td colspan="5" class="text-center pa-6">No matching permissions</td></tr></tbody>
                </v-table>
@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
    import { computed, ref, watch } from 'vue'
+   import { useConfirm } from '@/composables/useConfirm'
    import type { PermissionCatalogItem, UserPermissionDetails, UserRecord } from '@/types/auth'
    import { getUserPermissions, listPermissionCatalog, resetUserPermission, setUserPermission } from '@/services/userPermissions'
    const props = defineProps<{ modelValue: boolean; user: UserRecord | null }>()
@@ -37,6 +38,7 @@
    const loading = ref(false)
    const saving = ref(false)
    const error = ref('')
+   const { confirm } = useConfirm()
    const visibleCatalog = computed(() => catalog.value.filter(p => p.code.toLowerCase().includes(filter.value.toLowerCase())))
    function isDefault(code: string) { return details.value?.default_permissions.includes(code) || false }
    function isEffective(code: string) { return details.value?.effective_permissions.includes(code) || false }
@@ -55,6 +57,10 @@
    }
    async function change(id: string, allowed: boolean) {
       if (!props.user) return
+      if (saving.value) return
+      const permission = catalog.value.find(p => p.id === id)
+      const approved = await confirm({ title: 'Confirm permission change', message: `${allowed ? 'Allow' : 'Deny'} ${permission?.code ?? 'this permission'} for ${props.user.username}?`, confirmText: allowed ? 'Allow' : 'Deny', color: allowed ? 'primary' : 'error' })
+      if (!approved || saving.value) return
       saving.value = true; error.value = ''
       try { await setUserPermission(props.user.id, id, allowed); await load(); emit('changed') }
       catch (e: any) { error.value = e?.response?.data?.message || 'Unable to update permission.' }
@@ -62,6 +68,10 @@
    }
    async function reset(id: string) {
       if (!props.user) return
+      if (saving.value) return
+      const permission = catalog.value.find(p => p.id === id)
+      const approved = await confirm({ title: 'Confirm permission reset', message: `Reset ${permission?.code ?? 'this permission'} to the department default for ${props.user.username}?`, confirmText: 'Reset permission', color: 'warning' })
+      if (!approved || saving.value) return
       saving.value = true; error.value = ''
       try { await resetUserPermission(props.user.id, id); await load(); emit('changed') }
       catch (e: any) { error.value = e?.response?.data?.message || 'Unable to reset permission.' }

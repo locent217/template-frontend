@@ -1,9 +1,10 @@
 <template>
   <v-navigation-drawer v-model="open" :width="256" elevation="0" class="app-drawer" breakpoint="lg">
-    <div class="d-flex align-center ga-3 px-6 py-7"><v-avatar color="primary" rounded="lg" size="40"><v-img v-if="logoVisible && appConfig.logoUrl" :src="appConfig.logoUrl" alt="Company logo" cover @error="logoVisible = false" /><v-icon v-else icon="mdi-layers-triple" color="white" /></v-avatar><span class="text-h6 font-weight-bold">{{ appConfig.shortName }}</span></div>
+    <div class="d-flex align-center ga-3 px-6 py-7"><v-avatar color="primary" rounded="lg" size="40"><v-img v-if="logoVisible && appConfig.logoUrl" :src="appConfig.logoUrl" alt="Company logo" cover @error="logoVisible = false" /><v-icon v-else icon="mdi-layers-triple-outline" color="white" /></v-avatar><span class="text-h6 font-weight-bold">{{ appConfig.shortName }}</span></div>
     <div class="px-5 text-overline text-medium-emphasis mb-2">WORKSPACE</div>
     <v-list nav density="comfortable" class="px-3">
       <v-list-item v-for="item in items" :key="item.to" :title="item.title" :prepend-icon="item.icon" :to="item.to" rounded="lg" color="primary" class="mb-1" />
+      <v-list-item v-if="auth.canViewAuditLogs" title="Audit Logs" prepend-icon="mdi-clipboard-text-clock-outline" to="/audit-logs" rounded="lg" color="primary" class="mb-1" />
     </v-list>
     <template #append><div class="pa-5 text-caption text-medium-emphasis">{{ appConfig.companyName }} · {{ appConfig.environment }}</div></template>
 

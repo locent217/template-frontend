@@ -19,7 +19,7 @@
             <div class="d-flex ga-1 justify-end">
                <v-btn v-if="canPermissions" icon="mdi-shield-key-outline" size="small" variant="text" title="Manage permissions" :disabled="normalizedCode(item.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN" @click="openPermissions(item)" />
                <v-btn v-if="canUpdate" icon="mdi-pencil-outline" size="small" variant="text" title="Edit user" @click="openEdit(item)" />
-               <v-btn v-if="canDelete" icon="mdi-delete-outline" size="small" variant="text" color="error" title="Delete user" :disabled="item.id === auth.user?.id || normalizedCode(item.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN" @click="deleting = item; deleteDialog = true" />
+               <v-btn v-if="canDelete" icon="mdi-delete-outline" size="small" variant="text" color="error" title="Delete user" :disabled="item.id === auth.user?.id || normalizedCode(item.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN" @click="requestDelete(item)" />
             </div>
          </template>
       </v-data-table>
@@ -43,6 +43,7 @@
                   <v-col cols="12" md="6"><v-select v-model="form.user_type_id" :items="userTypeOptions" item-title="name" item-value="id" label="User type" :rules="[rules.required]" /></v-col>
                   <v-col cols="12" md="6"><v-select v-model="assignmentLevel" :items="assignmentOptions" item-title="title" item-value="value" label="Organizational assignment" @update:model-value="clearAssignment" /></v-col>
                   <v-col v-if="assignmentLevel !== 'none'" cols="12" md="6"><v-select v-model="assignmentId" :items="assignmentDisplayOptions" item-title="name" item-value="id" :label="assignmentLevel + ' assignment'" :rules="[rules.required]" :loading="loadingAssignments" /></v-col>
+                  <v-col v-if="!editingId" cols="12"><v-alert type="info" variant="tonal" density="comfortable">The temporary username and password will be emailed to the new employee. Use a unique temporary password and ask them to change it immediately.</v-alert></v-col>
                   <v-col cols="12"><v-switch v-model="form.active" color="primary" label="Active account" hide-details /></v-col>
                </v-row>
             </v-form>
@@ -52,13 +53,12 @@
       </v-card>
    </v-dialog>
 
-   <v-dialog v-model="deleteDialog" max-width="440">
-      <v-card class="pa-6"><h3 class="text-h6">Delete user?</h3><p class="mt-3">Delete <strong>{{ deleting ? fullName(deleting) : '' }}</strong>? This may be irreversible.</p><div class="d-flex justify-end ga-2 mt-6"><v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn><v-btn color="error" :loading="saving" @click="confirmDelete">Delete</v-btn></div></v-card>
-   </v-dialog>
+   
    <UserPermissionsDialog v-if="canPermissions" v-model="permissionsDialog" :user="permissionUser" @changed="onPermissionsChanged" />
 </template>
 
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm'
    import { computed, onMounted, ref, watch } from 'vue'
    import { listOrganization, type OrganizationResource } from '@/services/organization'
    import { useAuthStore } from '@/stores/auth'
@@ -75,7 +75,7 @@
    const loading = ref(false)
    const saving = ref(false)
    const dialog = ref(false)
-   const deleteDialog = ref(false)
+
    const permissionsDialog = ref(false)
    const permissionUser = ref<UserRecord | null>(null)
    const deleting = ref<UserRecord | null>(null)
@@ -184,6 +184,15 @@
       const result = await userForm.value?.validate()
       if (!result?.valid) return
       if (assignmentLevel.value !== 'none' && !assignmentId.value.trim()) { error.value = 'Provide an organizational assignment UUID.'; return }
+      if (saving.value) return
+      const updating = Boolean(editingId.value)
+      const approved = await confirm({
+         title: updating ? 'Confirm user update' : 'Confirm user creation',
+         message: updating ? `Save changes to ${form.value.first_name} ${form.value.last_name}?` : `Create user ${form.value.first_name} ${form.value.last_name}?`,
+         confirmText: updating ? 'Save changes' : 'Create user',
+         color: 'primary',
+      })
+      if (!approved || saving.value) return
       saving.value = true; error.value = ''
       try {
          const payload: UserPayload = { ...form.value, branch_id: null, region_id: null, territory_id: null, island_id: null }
@@ -198,10 +207,17 @@
       } catch (e) { error.value = apiError(e, 'Could not save user.') }
       finally { saving.value = false }
    }
+   const { confirm } = useConfirm()
+   async function requestDelete(item: UserRecord) {
+      const approved = await confirm({ title: 'Delete user?', message: `Delete ${fullName(item)}? This action may be irreversible.`, confirmText: 'Delete' })
+      if (!approved) return
+      deleting.value = item
+      await confirmDelete()
+   }
    async function confirmDelete() {
       if (!deleting.value) return
       saving.value = true; error.value = ''
-      try { await deleteUser(deleting.value.id); deleteDialog.value = false; deleting.value = null; message('User deleted.'); await refresh() }
+      try { await deleteUser(deleting.value.id);  deleting.value = null; message('User deleted.'); await refresh() }
       catch (e) { error.value = apiError(e, 'Could not delete user.') }
       finally { saving.value = false }
    }

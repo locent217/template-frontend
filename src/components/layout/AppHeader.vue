@@ -3,13 +3,13 @@
     <v-btn icon="mdi-menu" variant="text" aria-label="Toggle navigation" @click="emit('toggle-drawer')" />
     <span class="text-body-1 font-weight-medium ml-2 d-none d-sm-inline">{{ appConfig.name }}</span>
     <v-spacer />
-    <v-btn icon="mdi-bell-outline" variant="text" aria-label="Notifications" />
+    <NotificationBell />
     <v-menu location="bottom end" :close-on-content-click="true">
       <template #activator="{ props }">
         <v-btn v-bind="props" variant="text" class="text-none" aria-label="Account and logout menu">
           <v-avatar size="36" color="primary">
             <v-img v-if="avatarVisible && profileImage" :src="profileImage" alt="Profile photo" cover @error="avatarVisible = false" />
-            <v-icon v-else icon="mdi-account" color="white" size="24" />
+            <v-icon v-else icon="mdi-account-outline" color="white" size="24" />
           </v-avatar>
           <span class="ml-2 d-none d-sm-inline">{{ auth.user?.username || 'Account' }}</span>
           <v-icon icon="mdi-chevron-down" class="ml-1" />
@@ -19,7 +19,7 @@
         <v-card-text class="d-flex align-center ga-3 pb-3">
           <v-avatar size="54" color="primary">
             <v-img v-if="avatarVisible && profileImage" :src="profileImage" alt="Profile photo" cover @error="avatarVisible = false" />
-            <v-icon v-else icon="mdi-account" color="white" size="34" />
+            <v-icon v-else icon="mdi-account-outline" color="white" size="34" />
           </v-avatar>
           <div class="min-w-0">
             <div class="text-subtitle-1 font-weight-bold text-truncate">{{ fullName }}</div>
@@ -28,7 +28,8 @@
           </div>
         </v-card-text>
         <v-divider />
-        <v-card-actions class="pa-2">
+        <v-card-actions class="pa-2 d-flex flex-column">
+          <v-btn block variant="text" prepend-icon="mdi-lock-reset" to="/change-password">Change password</v-btn>
           <v-btn block variant="text" color="error" prepend-icon="mdi-logout" :loading="auth.loading" @click="signOut">Sign out</v-btn>
         </v-card-actions>
       </v-card>
@@ -38,6 +39,7 @@
 
 <script setup lang="ts">
    import { computed, ref, watch } from 'vue'
+   import NotificationBell from '@/components/notifications/NotificationBell.vue'
    import { useRouter } from 'vue-router'
    import { appConfig } from '@/config/app'
    import { useAuthStore } from '@/stores/auth'

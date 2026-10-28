@@ -17,8 +17,12 @@ const router = createRouter({
       { path: 'modules', component: () => import('@/pages/Modules.vue'), meta: { permission: 'modules.view', superAdmin: true } },
       { path: 'permissions', component: () => import('@/pages/Permissions.vue'), meta: { permission: 'permissions.view', superAdmin: true } },
       { path: 'department-user-type-permissions', component: () => import('@/pages/DefaultPermissions.vue'), meta: { permission: 'department_user_type_permissions.view', superAdmin: true } },
+      { path: 'audit-logs', component: () => import('@/pages/AuditLogs.vue'), meta: { auditLogsOnly: true } },
       { path: 'users', component: () => import('@/pages/Users.vue'), meta: { permission: 'users.view' } },
     ] },
+    { path: '/account-recovery', component: () => import('@/pages/AccountRecovery.vue'), meta: { guest: true } },
+    { path: '/change-password', component: () => import('@/pages/ChangePassword.vue'), meta: { auth: true } },
+    { path: '/first-use', component: () => import('@/pages/FirstUseCredentials.vue'), meta: { auth: true } },
     { path: '/forbidden', component: () => import('@/pages/Forbidden.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
   ],
@@ -33,9 +37,12 @@ router.beforeEach(async (to) => {
     return
   }
   if (to.matched.some(r => r.meta.auth) && !auth.isAuthenticated) return { path: '/login', query: { redirect: to.fullPath } }
+  if (auth.isAuthenticated && auth.user?.first_use && to.path !== '/first-use') return '/first-use'
+  if (to.path === '/first-use' && auth.isAuthenticated && !auth.user?.first_use) return '/dashboard'
   if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) return '/dashboard'
   const permission = to.meta.permission as import('@/types/auth').Permission | undefined
   if (to.path === '/users' && !auth.has('users.view')) return '/forbidden'
+  if (to.meta.auditLogsOnly && !auth.canViewAuditLogs) return '/forbidden'
   if (to.meta.superAdmin && !auth.isSuperAdmin) return '/forbidden'
   if (permission && !auth.has(permission)) return '/forbidden'
 })

@@ -1,7 +1,7 @@
 export type Permission = string
 export interface LookupOption { id: string; name: string; code: string }
 export interface AuthUser {
-   id: string; username: string; name?: string; first_name?: string; middle_name?: string | null; last_name?: string;
+   id: string; username: string; first_use: boolean; name?: string; first_name?: string; middle_name?: string | null; last_name?: string;
    email?: string; active?: boolean; profile_image_url?: string | null; avatar_url?: string | null;
    user_type: LookupOption | null; department: LookupOption | null;
    permissions: Permission[];

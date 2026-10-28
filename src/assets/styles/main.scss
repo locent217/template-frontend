@@ -1,10 +1,16 @@
 @use 'vuetify/settings' with (
-  $body-font-family: ('Roboto', sans-serif),
+  $body-font-family: ('Montserrat', sans-serif),
   $border-radius-root: 8px,
 );
-@import '@fontsource/roboto/400.css';
-@import '@fontsource/roboto/500.css';
-@import '@fontsource/roboto/700.css';
+
+/* Montserrat is bundled locally via @fontsource; no external font CDN required. */
+@import '@fontsource/montserrat/400.css';
+@import '@fontsource/montserrat/500.css';
+@import '@fontsource/montserrat/600.css';
+@import '@fontsource/montserrat/700.css';
+
+
+
 :root { font-synthesis: none; }
 body { letter-spacing: .1px; }
 .app-main { background: rgb(var(--v-theme-background)); min-height: 100vh; }
@@ -58,3 +64,21 @@ body { letter-spacing: .1px; }
 }
 .login-color-swatch[aria-pressed="true"] { outline: 2px solid rgb(var(--v-theme-on-surface)); outline-offset: 2px; }
 .login-color-swatch:focus-visible { outline: 3px solid rgb(var(--v-theme-primary)); outline-offset: 3px; }
+
+/* Keep Vuetify's visual system; refine typography and icon weight globally. */
+:root { font-family: 'Montserrat', sans-serif; }
+html, body, #app, .v-application,
+.v-overlay-container, .v-overlay-container .v-overlay__content {
+  font-family: 'Montserrat', sans-serif;
+}
+.v-application { font-weight: 400; }
+.v-list-item-title, .v-field__input, .v-btn__content,
+.v-label, .v-data-table, .v-card-text, .v-dialog {
+  font-family: 'Montserrat', sans-serif;
+}
+.v-list-item-title, .v-field__input { font-weight: 400; }
+.v-btn__content, .v-label, .v-data-table th { font-weight: 500; }
+.page-heading, .text-h4, .text-h5, .text-h6 { font-weight: 600; }
+.app-drawer .v-list-item__prepend .v-icon { font-size: 21px; opacity: .83; }
+.app-drawer .v-list-item-title { font-weight: 500; letter-spacing: 0; }
+.app-header .v-icon { opacity: .88; }
