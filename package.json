@@ -13,10 +13,13 @@
     "lint:fix": "eslint --fix"
   },
   "dependencies": {
+    "@fontsource/montserrat": "^5.3.0",
     "@fontsource/roboto": "^5.3.0",
     "@mdi/font": "^7.4.47",
     "axios": "^1.20.0",
+    "laravel-echo": "^2.6.1",
     "pinia": "^3.0.4",
+    "pusher-js": "^8.6.0",
     "vue": "^3.5.30",
     "vue-router": "^5.4.0",
     "vuetify": "^4.3.0"

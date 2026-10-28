@@ -2,6 +2,7 @@ import axios from 'axios'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authService, type LoginCredentials } from '@/services/authService'
+import { useNotificationStore } from '@/stores/notification'
 import type { AuthUser, Permission } from '@/types/auth'
 import { DEPARTMENT_CODES, USER_TYPE_CODES, normalizedCode } from '@/constants/organizationCodes'
 
@@ -17,6 +18,8 @@ export const useAuthStore = defineStore('auth', () => {
 
    // Codes must match the immutable codes returned by Laravel /api/me.
    const isSuperAdmin = computed(() => normalizedCode(user.value?.user_type?.code) === USER_TYPE_CODES.SUPER_ADMIN)
+
+   const canViewAuditLogs = computed(() => isSuperAdmin.value || normalizedCode(user.value?.department?.code) === DEPARTMENT_CODES.INFORMATION_TECHNOLOGY)
 
    const isUserManagerGroup = computed(() => {
       const role = normalizedCode(user.value?.user_type?.code)
@@ -66,12 +69,18 @@ export const useAuthStore = defineStore('auth', () => {
       }
    }
 
+   async function changeFirstUseCredentials(payload: { current_password: string; username: string; password: string; password_confirmation: string }): Promise<void> {
+      await authService.changeFirstUseCredentials(payload)
+      await fetchUser()
+   }
+
    async function logout(): Promise<void> {
       loading.value = true
 
       try {
          await authService.logout()
          user.value = null
+         useNotificationStore().clear()
          initialized.value = true
       } finally {
          loading.value = false
@@ -86,10 +95,12 @@ export const useAuthStore = defineStore('auth', () => {
       has,
       isUserManagerGroup,
       isSuperAdmin,
+      canViewAuditLogs,
       canManageUsers,
       fetchUser,
       restore,
       login,
       logout,
+      changeFirstUseCredentials,
    }
 })

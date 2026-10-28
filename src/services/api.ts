@@ -25,3 +25,16 @@ export const initializeCsrf = async (): Promise<void> => {
       },
    })
 }
+
+// Attach the server-generated correlation ID to failed API requests for support/debugging.
+api.interceptors.response.use(
+   response => response,
+   error => {
+      const requestId = error?.response?.headers?.['x-request-id']
+      if (requestId && typeof requestId === 'string') {
+         error.auditRequestId = requestId
+         console.error('API request failed. Reference ID:', requestId)
+      }
+      return Promise.reject(error)
+   },
+)
