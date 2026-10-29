@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { appConfig } from '@/config/app'
+import router from '@/router'
 
 // Supports VITE_API_URL with or without a trailing /api.
 const backendUrl = appConfig.apiUrl.replace(/\/+$/, '').replace(/\/api$/, '')
@@ -34,6 +35,9 @@ api.interceptors.response.use(
       if (requestId && typeof requestId === 'string') {
          error.auditRequestId = requestId
          console.error('API request failed. Reference ID:', requestId)
+      }
+      if (error?.response?.status === 503 && error?.response?.data?.code === 'SYSTEM_MAINTENANCE' && router.currentRoute.value.path !== '/maintenance') {
+         void router.replace('/maintenance')
       }
       return Promise.reject(error)
    },

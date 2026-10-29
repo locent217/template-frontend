@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { maintenanceService } from '@/services/maintenanceService'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,12 +24,26 @@ const router = createRouter({
     { path: '/account-recovery', component: () => import('@/pages/AccountRecovery.vue'), meta: { guest: true } },
     { path: '/change-password', component: () => import('@/pages/ChangePassword.vue'), meta: { auth: true } },
     { path: '/first-use', component: () => import('@/pages/FirstUseCredentials.vue'), meta: { auth: true } },
+    { path: '/maintenance', component: () => import('@/pages/Maintenance.vue') },
     { path: '/forbidden', component: () => import('@/pages/Forbidden.vue') },
-    { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFound.vue') },
   ],
 })
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  // Check before restoring the session so a 503 cannot cause a login redirect loop.
+  // If the status endpoint itself is unavailable, let the normal API error handling apply.
+  if (to.path !== '/maintenance') {
+    try {
+      const status = await maintenanceService.status()
+      if (status.enabled && !auth.isSuperAdmin) {
+        // Restore auth only to determine whether this user has a Super Admin bypass.
+        try { await auth.restore() } catch { return '/maintenance' }
+        if (!auth.isSuperAdmin) return '/maintenance'
+      }
+    } catch { /* The application may be temporarily unreachable. */ }
+  }
+  if (to.path === '/maintenance') return
   try {
     await auth.restore()
   } catch (error) {
