@@ -30,6 +30,11 @@
         <v-divider />
         <v-card-actions class="pa-2 d-flex flex-column">
           <v-btn block variant="text" prepend-icon="mdi-lock-reset" to="/change-password">Change password</v-btn>
+          <template v-if="auth.isSuperAdmin">
+            <v-btn block variant="text" :color="maintenanceEnabled ? 'success' : 'warning'" prepend-icon="mdi-tools" :loading="maintenanceLoading" @click="toggleMaintenance">
+              {{ maintenanceEnabled ? 'Disable maintenance' : 'Enable maintenance' }}
+            </v-btn>
+          </template>
           <v-btn block variant="text" color="error" prepend-icon="mdi-logout" :loading="auth.loading" @click="signOut">Sign out</v-btn>
         </v-card-actions>
       </v-card>
@@ -41,12 +46,35 @@
    import { computed, ref, watch } from 'vue'
    import NotificationBell from '@/components/notifications/NotificationBell.vue'
    import { useRouter } from 'vue-router'
+   import { maintenanceService } from '@/services/maintenanceService'
+   import { onMounted } from 'vue'
    import { appConfig } from '@/config/app'
    import { useAuthStore } from '@/stores/auth'
    const emit = defineEmits<{ 'toggle-drawer': [] }>()
    const auth = useAuthStore()
    const router = useRouter()
    const avatarVisible = ref(true)
+   const maintenanceEnabled = ref(false)
+   const maintenanceLoading = ref(false)
+   onMounted(async () => {
+      if (!auth.isSuperAdmin) return
+      try { maintenanceEnabled.value = (await maintenanceService.status()).enabled } catch { /* retry on toggle */ }
+   })
+   async function toggleMaintenance() {
+      if (maintenanceLoading.value) return
+      const next = !maintenanceEnabled.value
+      if (!window.confirm(next
+         ? 'Enable maintenance? Regular users will temporarily lose access.'
+         : 'Disable maintenance and restore access for all users?')) return
+      maintenanceLoading.value = true
+      try {
+         const status = await maintenanceService.update(next)
+         maintenanceEnabled.value = status.enabled
+      } catch (error) {
+         console.error('Unable to update maintenance mode', error)
+         window.alert('Maintenance mode could not be updated. Please try again.')
+      } finally { maintenanceLoading.value = false }
+   }
    const profileImage = computed(() => auth.user?.profile_image_url || auth.user?.avatar_url || null)
    watch(profileImage, () => { avatarVisible.value = true })
    const fullName = computed(() => {
