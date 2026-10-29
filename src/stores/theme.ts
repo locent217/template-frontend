@@ -10,7 +10,7 @@ export const useAppearanceStore = defineStore('appearance', () => {
   const accent = ref(savedAccent && ACCENTS.includes(savedAccent) ? savedAccent : ACCENTS[0]!)
   const isDark = computed(() => mode.value === 'dark')
   function apply() {
-    vuetifyTheme.global.name.value = isDark.value ? 'appDark' : 'appLight'
+    vuetifyTheme.change(isDark.value ? 'appDark' : 'appLight')
     for (const name of ['appLight', 'appDark']) vuetifyTheme.themes.value[name]!.colors.primary = accent.value
     localStorage.setItem('ui.mode', mode.value)
     localStorage.setItem('ui.accent', accent.value)
