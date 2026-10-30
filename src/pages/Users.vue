@@ -39,11 +39,11 @@
                   <v-col cols="12" md="6"><v-text-field v-model="form.email" label="Email" type="email" :rules="[rules.required, rules.email]" /></v-col>
                   <v-col cols="12"><v-text-field v-model="form.password" :label="editingId ? 'New password (optional)' : 'Temporary password'" :type="showPassword ? 'text' : 'password'" :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" @click:append-inner="showPassword = !showPassword" :rules="editingId && !form.password ? [] : [rules.required, rules.minLength(12)]" autocomplete="new-password" /></v-col>
                   <v-col cols="12"><v-text-field v-model="form.password_confirmation" :label="editingId ? 'Confirm new password' : 'Confirm temporary password'" :type="showPassword ? 'text' : 'password'" :rules="editingId && !form.password && !form.password_confirmation ? [] : [rules.required, (v: string) => v === form.password || 'Passwords do not match']" autocomplete="new-password" /></v-col>
-                  <v-col cols="12" md="6"><v-select v-model="form.department_id" :items="departmentOptions" item-title="name" item-value="id" label="Department" clearable :rules="[rules.required]" /></v-col>
-                  <v-col cols="12" md="6"><v-select v-model="form.user_type_id" :items="userTypeOptions" item-title="name" item-value="id" label="User type" :rules="[rules.required]" /></v-col>
-                  <v-col cols="12" md="6"><v-select v-model="assignmentLevel" :items="assignmentOptions" item-title="title" item-value="value" label="Organizational assignment" @update:model-value="clearAssignment" /></v-col>
-                  <v-col v-if="assignmentLevel !== 'none'" cols="12" md="6"><v-select v-model="assignmentId" :items="assignmentDisplayOptions" item-title="name" item-value="id" :label="assignmentLevel + ' assignment'" :rules="[rules.required]" :loading="loadingAssignments" /></v-col>
-                  <v-col v-if="!editingId" cols="12"><v-alert type="info" variant="tonal" density="comfortable">The temporary username and password will be emailed to the new employee. Use a unique temporary password and ask them to change it immediately.</v-alert></v-col>
+                 <v-col cols="12" md="6"><v-select v-model="form.user_type_id" :items="userTypeOptions" item-title="name" item-value="id" label="User type" :rules="[rules.required]" /></v-col>
+                 <v-col v-if="!isClient" cols="12" md="6"><v-select v-model="form.department_id" :items="departmentOptions" item-title="name" item-value="id" label="Department" clearable :rules="[rules.required]" /></v-col>
+                  <v-col v-if="!isClient" cols="12" md="6"><v-select v-model="assignmentLevel" :items="assignmentOptions" item-title="title" item-value="value" label="Organizational assignment" @update:model-value="clearAssignment" /></v-col>
+                  <v-col v-if="!isClient && assignmentLevel !== 'none'" cols="12" md="6"><v-select v-model="assignmentId" :items="assignmentDisplayOptions" item-title="name" item-value="id" :label="assignmentLevel + ' assignment'" :rules="[rules.required]" :loading="loadingAssignments" /></v-col>
+                  <v-col v-if="!editingId" cols="12"><v-alert type="info" variant="tonal" density="comfortable">The temporary username and password will be emailed to the new user. Use a unique temporary password and ask them to change it immediately.</v-alert></v-col>
                   <v-col cols="12"><v-switch v-model="form.active" color="primary" label="Active account" hide-details /></v-col>
                </v-row>
             </v-form>
@@ -131,6 +131,20 @@ import { useConfirm } from '@/composables/useConfirm'
    const selectedUser = computed(() => rows.value.find(row => row.id === editingId.value))
    const departmentOptions = computed(() => optionsWithCurrent(departments.value, form.value.department_id, selectedUser.value?.department?.name))
    const userTypeOptions = computed(() => optionsWithCurrent(assignableTypes.value, form.value.user_type_id, selectedUser.value?.user_type?.name))
+   const isClient = computed(() => {
+      const type = userTypes.value.find(item => item.id === form.value.user_type_id)
+      return normalizedCode(type?.code || selectedUser.value?.user_type?.code) === USER_TYPE_CODES.CLIENT
+   })
+   watch(isClient, client => {
+      if (!client) return
+      form.value.department_id = null
+      form.value.branch_id = null
+      form.value.region_id = null
+      form.value.territory_id = null
+      form.value.island_id = null
+      assignmentLevel.value = 'none'
+      assignmentId.value = ''
+   })
    const assignmentDisplayOptions = computed(() => {
       const selected = selectedUser.value
       const level = assignmentLevel.value
@@ -139,7 +153,7 @@ import { useConfirm } from '@/composables/useConfirm'
    })
    const assignableTypes = computed(() => auth.isSuperAdmin ? userTypes.value : userTypes.value.filter(type => normalizedCode(type.code) !== USER_TYPE_CODES.SUPER_ADMIN))
    const headers = [
-      { title: 'Employee', key: 'full_name' }, { title: 'Email', key: 'email' },
+      { title: 'User', key: 'full_name' }, { title: 'Email', key: 'email' },
       { title: 'Department', key: 'department' }, { title: 'User type', key: 'user_type' },
       { title: 'Status', key: 'active' }, { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
    ]
@@ -183,7 +197,7 @@ import { useConfirm } from '@/composables/useConfirm'
    async function save() {
       const result = await userForm.value?.validate()
       if (!result?.valid) return
-      if (assignmentLevel.value !== 'none' && !assignmentId.value.trim()) { error.value = 'Provide an organizational assignment UUID.'; return }
+      if (!isClient.value && assignmentLevel.value !== 'none' && !assignmentId.value.trim()) { error.value = 'Provide an organizational assignment UUID.'; return }
       if (saving.value) return
       const updating = Boolean(editingId.value)
       const approved = await confirm({
@@ -196,7 +210,8 @@ import { useConfirm } from '@/composables/useConfirm'
       saving.value = true; error.value = ''
       try {
          const payload: UserPayload = { ...form.value, branch_id: null, region_id: null, territory_id: null, island_id: null }
-         if (assignmentLevel.value !== 'none') (payload as any)[`${assignmentLevel.value}_id`] = assignmentId.value.trim()
+         if (isClient.value) payload.department_id = null
+         if (!isClient.value && assignmentLevel.value !== 'none') (payload as any)[`${assignmentLevel.value}_id`] = assignmentId.value.trim()
          if (editingId.value && !payload.password) {
             delete payload.password
             delete payload.password_confirmation
