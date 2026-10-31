@@ -7,7 +7,9 @@ let echo: Echo<'reverb'> | null = null
 export async function subscribeToNotifications(userId: string, onNotification: () => void): Promise<() => void> {
   const key = import.meta.env.VITE_REVERB_APP_KEY
   const host = import.meta.env.VITE_REVERB_HOST
-  if (!key || !host || import.meta.env.VITE_REVERB_ENABLED !== 'true') return () => {}
+  if (!key || !host || import.meta.env.VITE_REVERB_ENABLED !== 'true') {
+      return () => {}
+  }
 
   // Echo expects a global Pusher constructor for the Reverb protocol.
   window.Pusher = Pusher

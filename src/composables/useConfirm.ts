@@ -11,7 +11,9 @@ export function closeConfirm(confirmed: boolean): void {
 }
 export function useConfirm() {
   function confirm(options: ConfirmOptions): Promise<boolean> {
-    if (settle) closeConfirm(false)
+    if (settle) {
+        closeConfirm(false)
+    }
     Object.assign(confirmState, { open: true, title: options.title ?? 'Confirm action', message: options.message, confirmText: options.confirmText ?? 'Confirm', color: options.color ?? 'error' })
     return new Promise<boolean>((resolve) => { settle = resolve })
   }
