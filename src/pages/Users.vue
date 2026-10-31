@@ -165,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { useConfirm } from '@/composables/useConfirm'
+    import { useConfirm } from '@/composables/useConfirm'
     import { computed, onMounted, ref, watch } from 'vue'
     import { listOrganization, type OrganizationResource } from '@/services/organization'
     import { useAuthStore } from '@/stores/auth'
