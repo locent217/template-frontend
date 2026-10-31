@@ -42,19 +42,18 @@ export const useAuthStore = defineStore('auth', () => {
    }
 
    async function restore(): Promise<void> {
-      if (initialized.value) return
-
-      try {
-         await fetchUser()
-      } catch (error) {
-         if (axios.isAxiosError(error) && [401, 419].includes(error.response?.status ?? 0)) {
-            user.value = null
-            initialized.value = true
-            return
+      if (!initialized.value) {
+         try {
+            await fetchUser()
+         } catch (error) {
+            if (axios.isAxiosError(error) && [401, 419].includes(error.response?.status ?? 0)) {
+               user.value = null
+               initialized.value = true
+            } else {
+               // Keep the state unresolved so temporary outages aren't mistaken for logout.
+               throw error
+            }
          }
-
-         // Keep the state unresolved so temporary outages aren't mistaken for logout.
-         throw error
       }
    }
 

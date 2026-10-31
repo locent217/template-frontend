@@ -8,7 +8,9 @@ export const useNotificationStore = defineStore('notifications', () => {
    const lastPage = ref(1)
    const loading = ref(false)
    async function refresh(nextPage = page.value) {
-      if (loading.value) return
+      if (loading.value) {
+          return
+      }
       loading.value = true
       try {
          const result = await notificationService.list(nextPage)

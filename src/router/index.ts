@@ -39,26 +39,48 @@ router.beforeEach(async (to) => {
       if (status.enabled && !auth.isSuperAdmin) {
         // Restore auth only to determine whether this user has a Super Admin bypass.
         try { await auth.restore() } catch { return '/maintenance' }
-        if (!auth.isSuperAdmin) return '/maintenance'
+        if (!auth.isSuperAdmin) {
+            return '/maintenance'
+        }
       }
     } catch { /* The application may be temporarily unreachable. */ }
   }
-  if (to.path === '/maintenance') return
+  if (to.path === '/maintenance') {
+      return
+  }
   try {
     await auth.restore()
   } catch (error) {
     console.error("Unable to verify session", error)
-    if (to.path !== "/login") return { path: "/login", query: { unavailable: "1" } }
+    if (to.path !== "/login") {
+        return { path: "/login", query: { unavailable: "1" } }
+    }
     return
   }
-  if (to.matched.some(r => r.meta.auth) && !auth.isAuthenticated) return { path: '/login', query: { redirect: to.fullPath } }
-  if (auth.isAuthenticated && auth.user?.first_use && to.path !== '/first-use') return '/first-use'
-  if (to.path === '/first-use' && auth.isAuthenticated && !auth.user?.first_use) return '/dashboard'
-  if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) return '/dashboard'
+  if (to.matched.some(r => r.meta.auth) && !auth.isAuthenticated) {
+      return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  if (auth.isAuthenticated && auth.user?.first_use && to.path !== '/first-use') {
+      return '/first-use'
+  }
+  if (to.path === '/first-use' && auth.isAuthenticated && !auth.user?.first_use) {
+      return '/dashboard'
+  }
+  if (to.matched.some(r => r.meta.guest) && auth.isAuthenticated) {
+      return '/dashboard'
+  }
   const permission = to.meta.permission as import('@/types/auth').Permission | undefined
-  if (to.path === '/users' && !auth.has('users.view')) return '/forbidden'
-  if (to.meta.auditLogsOnly && !auth.canViewAuditLogs) return '/forbidden'
-  if (to.meta.superAdmin && !auth.isSuperAdmin) return '/forbidden'
-  if (permission && !auth.has(permission)) return '/forbidden'
+  if (to.path === '/users' && !auth.has('users.view')) {
+      return '/forbidden'
+  }
+  if (to.meta.auditLogsOnly && !auth.canViewAuditLogs) {
+      return '/forbidden'
+  }
+  if (to.meta.superAdmin && !auth.isSuperAdmin) {
+      return '/forbidden'
+  }
+  if (permission && !auth.has(permission)) {
+      return '/forbidden'
+  }
 })
 export default router
